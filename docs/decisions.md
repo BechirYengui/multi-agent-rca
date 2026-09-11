@@ -191,3 +191,26 @@ se contenter de documenter.
 Elle coûte ~1 appel par incident. Lui donner sa meilleure chance coûte quelques
 dollars et c'est la seule façon de rendre un éventuel écart crédible. Le rapport
 indique explicitement quel niveau a été retenu.
+
+---
+
+## D17 — Le coût réel du benchmark, encadré et non estimé (2026-09-11)
+
+Le plan annonçait ~11,5 $ (Opus 5) ou ~4,5 $ (Sonnet 5) par passe, sur des
+hypothèses de jetons posées à la main. `council benchmark dry-run` rejoue le
+vrai pipeline contre deux clients simulés — l'un où tout le monde s'accorde du
+premier coup, l'autre où le divergent s'entête jusqu'au plafond — et donne un
+**encadrement** plutôt qu'un point :
+
+| Modèle | Minimum (accord immédiat) | Maximum (divergence têtue) |
+|---|---|---|
+| Sonnet 5 | 270 appels — **3,48 $** | 450 appels — **5,56 $** |
+| Opus 5 | 270 appels — **8,69 $** | 450 appels — **13,90 $** |
+
+Le nombre d'allers-retours dépend des réponses : il ne peut pas être connu
+d'avance. Un chiffre unique aurait donc été faux par construction.
+
+Conséquence sur l'option B du plan (Sonnet 5 × 3 passes + 1 passe Opus 5) :
+**19 à 31 $**, et non ~25 $. Le plafond par défaut de `.env.example` (25 $) est
+donc trop serré pour la borne haute — à porter à 40 $, ou à découper en deux
+runs.

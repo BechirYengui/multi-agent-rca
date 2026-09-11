@@ -239,3 +239,79 @@ class BenchmarkRunner:
 def read_results(path: Path) -> list[ArmResult]:
     with path.open(encoding="utf-8") as handle:
         return [ArmResult(**json.loads(line)) for line in handle if line.strip()]
+
+
+UNANIMOUS_PAYLOAD: dict[str, Any] = {
+    "cause": "disk_full",
+    "confidence": 0.8,
+    "evidence": ["a", "b"],
+    "alternatives": [],
+    "reasoning": "r",
+}
+ARBITER_PAYLOAD: dict[str, Any] = {
+    "cause": "disk_full",
+    "confidence": 0.9,
+    "rejected": [],
+    "reasoning": "r",
+    "question": "une observation de plus ?",
+    "rationale": "r",
+    "tracks": [],
+    "next_step": "n",
+}
+
+
+def _stubborn(*, system: str, user: str, tag: str) -> dict[str, Any]:
+    """Scenario le plus cher : l'agent Historique diverge et ne cede jamais."""
+    if tag.startswith("arbiter"):
+        return ARBITER_PAYLOAD
+    if tag.startswith("history"):
+        return {**UNANIMOUS_PAYLOAD, "cause": "memory_leak"}
+    return UNANIMOUS_PAYLOAD
+
+
+def estimate_benchmark(
+    dataset: Dataset,
+    retriever: CaseRetriever,
+    specialists: Sequence[BaseSpecialist],
+    *,
+    out_dir: Path,
+    baseline_efforts: Sequence[str] = ("medium", "high"),
+    k: int = 5,
+    max_rounds: int = 2,
+) -> dict[str, tuple[int, int, int]]:
+    """Encadre le cout d'un run complet AVANT le premier appel facture.
+
+    Le nombre d'allers-retours depend des reponses : on ne peut pas le connaitre
+    d'avance. On donne donc un ENCADREMENT, en rejouant le vrai pipeline contre
+    deux clients simules -- l'un ou tout le monde s'accorde du premier coup (le
+    moins cher), l'autre ou le divergent s'entete jusqu'au plafond (le plus cher).
+    Le run reel tombera entre les deux.
+
+    Retourne, par scenario : (appels, jetons d'entree, jetons de sortie).
+    """
+    from council.llm.client import ASSUMED_OUTPUT_TOKENS, FakeClient, estimate_tokens
+
+    out: dict[str, tuple[int, int, int]] = {}
+    for label, responder in (
+        ("minimum (accord immediat)", lambda **_: UNANIMOUS_PAYLOAD),
+        ("maximum (divergence tetue)", _stubborn),
+    ):
+        client = FakeClient(responder)
+        runner = BenchmarkRunner(
+            dataset=dataset,
+            retriever=retriever,
+            specialists=specialists,
+            client=client,
+            run_id="dry-run",
+            out_dir=out_dir,
+            baseline_efforts=baseline_efforts,
+            k=k,
+            max_rounds=max_rounds,
+        )
+        runner.run()
+        out[label] = (
+            len(client.calls),
+            sum(estimate_tokens(call.system + call.user) for call in client.calls),
+            ASSUMED_OUTPUT_TOKENS * len(client.calls),
+        )
+    return out

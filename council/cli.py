@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import typer
@@ -19,7 +20,7 @@ from council.agents.retrieval import CaseRetriever
 from council.benchmark.calibration import dry_run, run_calibration, summarize
 from council.benchmark.plots import accuracy_by_category, consensus_vs_accuracy
 from council.benchmark.report import render_benchmark_markdown, render_markdown
-from council.benchmark.runner import BenchmarkRunner, read_results
+from council.benchmark.runner import BenchmarkRunner, estimate_benchmark, read_results
 from council.budget import BudgetExceeded, BudgetGuard
 from council.config import (
     CACHE_DIR,
@@ -362,3 +363,42 @@ def _write_benchmark_outputs(
     typer.echo(markdown)
     typer.echo(f"rapport   : {PROJECT_ROOT / 'docs' / 'benchmark.md'}")
     typer.echo(f"graphiques: {figure_1}, {figure_2}")
+
+
+@benchmark_app.command("dry-run")
+def benchmark_dry_run(
+    k: int = typer.Option(5),
+    efforts: str = typer.Option("medium,high"),
+    max_rounds: int = typer.Option(2),
+    model: str = typer.Option(""),
+) -> None:
+    """Encadre le cout d'un run complet. Aucun reseau, aucun cout."""
+    import tempfile
+
+    from council.budget import cost_usd
+
+    settings = load_settings()
+    chosen = model or settings.model
+    retriever = CaseRetriever(load_kb().entries)
+    with tempfile.TemporaryDirectory() as tmp:
+        estimates = estimate_benchmark(
+            load_dataset(),
+            retriever,
+            build_specialists(retriever, k),
+            out_dir=Path(tmp),
+            baseline_efforts=[e.strip() for e in efforts.split(",") if e.strip()],
+            k=k,
+            max_rounds=max_rounds,
+        )
+    typer.echo(f"modele {chosen} — 45 incidents, 4 bras\n")
+    for label, (calls, tokens_in, tokens_out) in estimates.items():
+        typer.echo(
+            f"  {label:<28} {calls:>4} appels  "
+            f"{tokens_in:>8,} jetons in  {tokens_out:>7,} out  "
+            f"{cost_usd(chosen, tokens_in, tokens_out):>6.2f} $"
+        )
+    typer.echo(f"\nplafond configure : {settings.budget_usd:.2f} $")
+    typer.echo(
+        "Le nombre de relances depend des reponses : le run reel tombera entre ces\n"
+        "deux bornes. Les jetons d'entree sont estimes a 3,2 caracteres par jeton."
+    )
