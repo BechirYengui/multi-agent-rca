@@ -10,10 +10,9 @@ retenue et l'autre est publiee.
 
 from __future__ import annotations
 
-from council.agents.base import build_system, call, render_user_message
+from council.agents.base import BaseSpecialist, build_system, render_user_message
 from council.agents.retrieval import CaseRetriever
-from council.llm.client import LLMClient
-from council.models import CallUsage, Hypothesis, Incident, SpecialistName
+from council.models import Incident, SpecialistName
 
 SYSTEM = build_system(
     role="Historique",
@@ -34,16 +33,15 @@ INSTRUCTION = (
 )
 
 
-class HistorySpecialist:
+class HistorySpecialist(BaseSpecialist):
     name = SpecialistName.HISTORY
+    system = SYSTEM
 
     def __init__(self, retriever: CaseRetriever, k: int = 5) -> None:
         self.retriever = retriever
         self.k = k
 
-    def analyse(
-        self, incident: Incident, client: LLMClient, effort: str = "low"
-    ) -> tuple[Hypothesis, CallUsage]:
+    def build_user(self, incident: Incident) -> str:
         query = incident.history_query()
         cases = self.retriever.search(query, k=self.k)
         view = {
@@ -62,5 +60,4 @@ class HistorySpecialist:
                 for case in cases
             ],
         }
-        user = render_user_message(view, INSTRUCTION)
-        return call(client, self.name, SYSTEM, user, effort, incident.id)
+        return render_user_message(view, INSTRUCTION)

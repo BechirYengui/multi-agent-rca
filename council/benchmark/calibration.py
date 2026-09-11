@@ -15,6 +15,7 @@ Deux questions, et la reponse a la seconde decide de la conception de l'arbitre 
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 
 from council.agents.base import Specialist
@@ -80,7 +81,7 @@ def _record(
 
 def run_calibration(
     dataset: Dataset,
-    specialists: list[Specialist],
+    specialists: Sequence[Specialist],
     client: LLMClient,
     effort: str = "low",
     limit: int | None = None,
@@ -182,7 +183,9 @@ ABSTAIN_PAYLOAD: dict[str, object] = {
 }
 
 
-def dry_run(dataset: Dataset, specialists: list[Specialist], effort: str = "low") -> Estimate:
+def dry_run(
+    dataset: Dataset, specialists: Sequence[Specialist], effort: str = "low"
+) -> Estimate:
     """Chiffre le run AVANT le premier appel facture.
 
     On ne re-implemente pas la construction des invites : on fait tourner le

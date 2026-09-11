@@ -9,7 +9,8 @@ from datetime import UTC, datetime
 import typer
 
 from council.agents.app import AppSpecialist
-from council.agents.base import Specialist
+from council.agents.arbiter import Arbiter
+from council.agents.base import BaseSpecialist
 from council.agents.history import HistorySpecialist
 from council.agents.infra import InfraSpecialist
 from council.agents.keyword import classify
@@ -31,6 +32,8 @@ from council.data.specs import SPECS
 from council.data.taxonomy import Category
 from council.llm.client import AnthropicClient
 from council.models import Dataset, KnowledgeBase
+from council.orchestration.graph import build_graph, investigate
+from council.orchestration.trace import Tracer, read_trace, render_reasoning
 
 app = typer.Typer(help="incident-council", no_args_is_help=True)
 dataset_app = typer.Typer(help="Jeu de donnees synthetique", no_args_is_help=True)
@@ -39,7 +42,7 @@ app.add_typer(dataset_app, name="dataset")
 app.add_typer(agents_app, name="agents")
 
 
-def build_specialists(retriever: CaseRetriever, k: int) -> list[Specialist]:
+def build_specialists(retriever: CaseRetriever, k: int) -> list[BaseSpecialist]:
     return [InfraSpecialist(), AppSpecialist(), HistorySpecialist(retriever, k=k)]
 
 
@@ -201,3 +204,73 @@ def agents_calibrate(
     typer.echo(markdown)
     typer.echo(f"traces brutes : {out_dir / 'specialists.jsonl'}")
     typer.echo(f"depense reelle : {guard.spent_usd:.4f} $ sur {guard.limit_usd:.2f} $")
+
+
+@app.command("investigate")
+def investigate_cmd(
+    incident_id: str = typer.Argument(..., help="Par exemple INC-001"),
+    k: int = typer.Option(5),
+    effort_specialist: str = typer.Option("low"),
+    effort_arbiter: str = typer.Option("high"),
+    model: str = typer.Option(""),
+    budget: float = typer.Option(0.0),
+    max_rounds: int = typer.Option(2),
+) -> None:
+    """Fait tourner le graphe complet sur un incident et ecrit sa trace."""
+    settings = load_settings()
+    chosen = model or settings.model
+    guard = BudgetGuard(limit_usd=budget or settings.budget_usd)
+    client = AnthropicClient(
+        model=chosen,
+        budget=guard,
+        cache_dir=CACHE_DIR / "llm",
+        cache_enabled=settings.cache_enabled,
+    )
+    dataset = load_dataset()
+    incident = next((i for i in dataset.incidents if i.id == incident_id), None)
+    if incident is None:
+        typer.echo(f"incident {incident_id} inconnu")
+        raise typer.Exit(code=1)
+
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    trace_path = RESULTS_DIR / "raw" / run_id / "trace.jsonl"
+    tracer = Tracer(run_id=run_id, path=trace_path)
+    graph = build_graph(
+        specialists=build_specialists(CaseRetriever(load_kb().entries), k),
+        arbiter=Arbiter(effort=effort_arbiter),
+        client=client,
+        tracer=tracer,
+        effort_specialist=effort_specialist,
+        max_rounds=max_rounds,
+    )
+    try:
+        verdict = investigate(graph, incident)
+    except BudgetExceeded as exc:
+        typer.echo(f"ARRET : {exc}")
+        raise typer.Exit(code=2) from exc
+
+    typer.echo(render_reasoning(tracer.records, incident.id))
+    typer.echo(f"cause retenue    : {verdict.cause or 'PAS DE CONSENSUS'}")
+    typer.echo(f"confiance        : {verdict.confidence:.2f}  ({verdict.consensus})")
+    typer.echo(f"allers-retours   : {verdict.rounds}")
+    typer.echo(f"appels LLM       : {verdict.llm_calls}")
+    typer.echo(f"jetons           : {verdict.input_tokens} entree / {verdict.output_tokens} sortie")
+    typer.echo(f"cout             : {verdict.usd:.4f} $")
+    typer.echo(f"revue humaine    : {'recommandee' if verdict.recommend_human_review else 'non'}")
+    typer.echo(f"trace            : {trace_path}")
+
+
+@app.command("replay")
+def replay_cmd(
+    run_id: str = typer.Argument(...),
+    incident_id: str = typer.Option("", help="Vide = tous les incidents du run"),
+) -> None:
+    """Reconstitue le raisonnement depuis la trace. Aucun appel, aucun cout."""
+    path = RESULTS_DIR / "raw" / run_id / "trace.jsonl"
+    if not path.exists():
+        typer.echo(f"trace introuvable : {path}")
+        raise typer.Exit(code=1)
+    records = read_trace(path)
+    ids = [incident_id] if incident_id else sorted({r["incident_id"] for r in records})
+    for current in ids:
+        typer.echo(render_reasoning(records, current))

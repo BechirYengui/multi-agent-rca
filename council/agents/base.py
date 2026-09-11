@@ -75,27 +75,64 @@ def render_user_message(view: dict[str, Any], instruction: str) -> str:
     return f"{instruction}\n\n```json\n{json.dumps(view, ensure_ascii=False, indent=2)}\n```"
 
 
+FOLLOWUP_TEMPLATE = """{question}
+
+Reponds au meme format. Si tu maintiens ta conclusion, dis dans `reasoning` ce
+qui, dans TES donnees, resiste a cette objection. Si tu ne peux pas repondre avec
+ce que tu as, abstiens-toi plutot que de te rallier."""
+
+
 class Specialist(Protocol):
     name: SpecialistName
+    system: str
+
+    def build_user(self, incident: Incident) -> str: ...
 
     def analyse(
-        self, incident: Incident, client: LLMClient, effort: str
+        self, incident: Incident, client: LLMClient, effort: str = "low"
     ) -> tuple[Hypothesis, CallUsage]: ...
 
 
-def call(
-    client: LLMClient,
-    agent: SpecialistName,
-    system: str,
-    user: str,
-    effort: str,
-    incident_id: str,
-) -> tuple[Hypothesis, CallUsage]:
-    payload, usage = client.structured(
-        system=system,
-        user=user,
-        schema=specialist_schema(),
-        effort=effort,
-        tag=f"{agent}:{incident_id}",
-    )
-    return parse_hypothesis(agent, payload), usage
+class BaseSpecialist:
+    """Implemente une fois pour toutes l'appel et la relance.
+
+    La relance reprend EXACTEMENT la meme vue que le premier appel, augmentee de
+    la question de l'arbitre. L'agent divergent ne recoit jamais les donnees des
+    autres : on lui demande de re-regarder les siennes, pas de se rallier a une
+    information qu'il n'a pas les moyens de verifier.
+    """
+
+    name: SpecialistName
+    system: str
+
+    def build_user(self, incident: Incident) -> str:  # pragma: no cover - abstrait
+        raise NotImplementedError
+
+    def _call(
+        self, incident: Incident, client: LLMClient, effort: str, user: str, tag: str
+    ) -> tuple[Hypothesis, CallUsage]:
+        payload, usage = client.structured(
+            system=self.system,
+            user=user,
+            schema=specialist_schema(),
+            effort=effort,
+            tag=tag,
+        )
+        return parse_hypothesis(self.name, payload), usage
+
+    def analyse(
+        self, incident: Incident, client: LLMClient, effort: str = "low"
+    ) -> tuple[Hypothesis, CallUsage]:
+        return self._call(
+            incident, client, effort, self.build_user(incident), f"{self.name}:{incident.id}"
+        )
+
+    def reask(
+        self, incident: Incident, client: LLMClient, effort: str, question: str, round_index: int
+    ) -> tuple[Hypothesis, CallUsage]:
+        user = (
+            self.build_user(incident) + "\n\n---\n\n" + FOLLOWUP_TEMPLATE.format(question=question)
+        )
+        return self._call(
+            incident, client, effort, user, f"{self.name}:{incident.id}:r{round_index}"
+        )

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from council.agents.base import build_system, call, render_user_message
-from council.llm.client import LLMClient
-from council.models import CallUsage, Hypothesis, Incident, SpecialistName
+from council.agents.base import BaseSpecialist, build_system, render_user_message
+from council.models import Incident, SpecialistName
 
 SYSTEM = build_system(
     role="Infrastructure",
@@ -23,11 +22,9 @@ INSTRUCTION = (
 )
 
 
-class InfraSpecialist:
+class InfraSpecialist(BaseSpecialist):
     name = SpecialistName.INFRA
+    system = SYSTEM
 
-    def analyse(
-        self, incident: Incident, client: LLMClient, effort: str = "low"
-    ) -> tuple[Hypothesis, CallUsage]:
-        user = render_user_message(incident.infra_view(), INSTRUCTION)
-        return call(client, self.name, SYSTEM, user, effort, incident.id)
+    def build_user(self, incident: Incident) -> str:
+        return render_user_message(incident.infra_view(), INSTRUCTION)

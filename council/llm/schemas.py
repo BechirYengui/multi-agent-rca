@@ -70,3 +70,92 @@ def specialist_schema() -> dict[str, Any]:
             "additionalProperties": False,
         },
     }
+
+
+def _cause_enum() -> dict[str, Any]:
+    return {"type": "string", "enum": [cause.value for cause in RootCause]}
+
+
+def arbiter_verdict_schema() -> dict[str, Any]:
+    """Conclusion : une cause, et les pistes ecartees AVEC leur motif.
+
+    `rejected` est obligatoire et non vide : un arbitre qui conclut sans dire ce
+    qu'il ecarte ne rend pas un arbitrage, il rend un avis.
+    """
+    return {
+        "type": "json_schema",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "cause": _cause_enum(),
+                "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                "rejected": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "cause": _cause_enum(),
+                            "reason": {"type": "string"},
+                        },
+                        "required": ["cause", "reason"],
+                        "additionalProperties": False,
+                    },
+                },
+                "reasoning": {"type": "string"},
+            },
+            "required": ["cause", "confidence", "rejected", "reasoning"],
+            "additionalProperties": False,
+        },
+    }
+
+
+def arbiter_question_schema() -> dict[str, Any]:
+    return {
+        "type": "json_schema",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "description": (
+                        "Une question precise, repondable avec les SEULES donnees "
+                        "dont dispose l'agent divergent."
+                    ),
+                },
+                "rationale": {"type": "string"},
+            },
+            "required": ["question", "rationale"],
+            "additionalProperties": False,
+        },
+    }
+
+
+def arbiter_split_schema() -> dict[str, Any]:
+    return {
+        "type": "json_schema",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "tracks": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "cause": _cause_enum(),
+                            "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                            "summary": {"type": "string"},
+                        },
+                        "required": ["cause", "confidence", "summary"],
+                        "additionalProperties": False,
+                    },
+                },
+                "next_step": {
+                    "type": "string",
+                    "description": "L'observation qui departagerait les pistes.",
+                },
+                "reasoning": {"type": "string"},
+            },
+            "required": ["tracks", "next_step", "reasoning"],
+            "additionalProperties": False,
+        },
+    }

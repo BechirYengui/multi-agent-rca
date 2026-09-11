@@ -185,3 +185,68 @@ class CallUsage(_Frozen):
     usd: float
     latency_ms: float
     from_cache: bool
+
+
+class ConsensusKind(StrEnum):
+    """Forme de l'accord entre les trois specialistes.
+
+    La distinction `unanimous` / `convergent_partial` n'est pas cosmetique : deux
+    agents d'accord et un troisieme qui s'abstient n'est pas la meme chose que
+    trois agents d'accord. Le second cas vaut trois voix, le premier deux.
+    """
+
+    UNANIMOUS = "unanimous"
+    CONVERGENT_PARTIAL = "convergent_partial"
+    MAJORITY = "majority"
+    SINGLE_SOURCE = "single_source"
+    SPLIT = "split"
+    NONE = "none"
+
+
+class Clarification(_Frozen):
+    """Une relance de l'arbitre vers l'agent divergent."""
+
+    round_index: int
+    target: SpecialistName
+    question: str
+    answer_cause: RootCause | None
+    answer_confidence: float
+    changed_mind: bool
+
+
+class RejectedTrack(_Frozen):
+    cause: RootCause
+    reason: str
+
+
+class Track(_Frozen):
+    """Une piste d'un rapport sans consensus."""
+
+    cause: RootCause
+    confidence: float
+    supported_by: list[SpecialistName]
+    summary: str
+
+
+class Verdict(_Frozen):
+    """Le rapport final.
+
+    `cause = None` signifie explicitement « pas de consensus ». Ce n'est pas un
+    echec du systeme : sur un incident reellement ambigu, c'est la bonne reponse,
+    et la phase 4 la compte comme telle.
+    """
+
+    incident_id: str
+    cause: RootCause | None
+    confidence: float = Field(ge=0.0, le=1.0)
+    consensus: ConsensusKind
+    rejected: list[RejectedTrack] = Field(default_factory=list)
+    tracks: list[Track] = Field(default_factory=list)
+    reasoning: str = ""
+    rounds: int = 0
+    llm_calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    usd: float = 0.0
+    latency_ms: float = 0.0
+    recommend_human_review: bool = False
