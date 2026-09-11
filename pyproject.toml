@@ -57,7 +57,7 @@ warn_unreachable = true
 files = ["council", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["rank_bm25.*", "matplotlib.*"]
+module = ["rank_bm25.*", "matplotlib.*", "anthropic.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

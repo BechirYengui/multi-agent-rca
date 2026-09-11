@@ -10,6 +10,7 @@ ni le leurre, ni la categorie.
 from __future__ import annotations
 
 from datetime import date, datetime
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -135,3 +136,52 @@ class KnowledgeBase(_Frozen):
     seed: int
     generator_version: str
     entries: list[PastIncident]
+
+
+# --------------------------------------------------------------------------- #
+# Sorties d'agents (phase 2)
+# --------------------------------------------------------------------------- #
+
+
+class SpecialistName(StrEnum):
+    INFRA = "infra"
+    APP = "app"
+    HISTORY = "history"
+
+
+class Hypothesis(_Frozen):
+    """Ce qu'un specialiste produit, et rien de plus.
+
+    `cause = None` signifie « je n'ai pas de quoi trancher » -- ce n'est pas une
+    treizieme cause. La distinction compte pour l'arbitre : un agent qui
+    s'abstient n'est pas un agent qui contredit, et les traiter pareil ferait
+    passer une absence de donnees pour un desaccord.
+    """
+
+    agent: SpecialistName
+    cause: RootCause | None
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence: list[str]
+    alternatives: list[RootCause] = Field(default_factory=list)
+    reasoning: str
+
+    @property
+    def abstained(self) -> bool:
+        return self.cause is None
+
+    def ranked(self) -> list[RootCause]:
+        """Cause principale puis alternatives, sans doublon."""
+        out: list[RootCause] = [] if self.cause is None else [self.cause]
+        for alternative in self.alternatives:
+            if alternative not in out:
+                out.append(alternative)
+        return out
+
+
+class CallUsage(_Frozen):
+    model: str
+    input_tokens: int
+    output_tokens: int
+    usd: float
+    latency_ms: float
+    from_cache: bool

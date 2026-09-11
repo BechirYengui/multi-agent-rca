@@ -9,4 +9,6 @@ Investigation d'incidents de production par trois agents specialistes
 independants (infrastructure, application, historique) et un arbitre, comparee
 mesure en main a un agent unique recevant tout le contexte.
 
-Etat : **phase 1** (jeu de donnees). Voir `docs/plan.md`.
+Etat : **phase 2** — jeu de donnees valide (`docs/dataset.md`), les trois
+specialistes sont ecrits et testes hors reseau ; la mesure de calibration
+attend une cle API. Voir `docs/plan.md` et `docs/decisions.md`.
