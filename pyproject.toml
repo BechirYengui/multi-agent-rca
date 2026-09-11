@@ -1,5 +1,5 @@
 [project]
-name = "incident-council"
+name = "multi-agent-rca"
 version = "0.1.0"
 description = "Investigation d'incidents de production par agents specialistes independants + arbitre"
 readme = "README.md"

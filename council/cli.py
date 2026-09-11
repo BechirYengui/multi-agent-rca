@@ -39,7 +39,7 @@ from council.models import Dataset, KnowledgeBase
 from council.orchestration.graph import build_graph, investigate
 from council.orchestration.trace import Tracer, read_trace, render_reasoning
 
-app = typer.Typer(help="incident-council", no_args_is_help=True)
+app = typer.Typer(help="multi-agent-rca", no_args_is_help=True)
 dataset_app = typer.Typer(help="Jeu de donnees synthetique", no_args_is_help=True)
 agents_app = typer.Typer(help="Les trois specialistes", no_args_is_help=True)
 app.add_typer(dataset_app, name="dataset")

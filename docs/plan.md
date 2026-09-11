@@ -1,6 +1,6 @@
 # Plan d'implémentation — 5 phases
 
-Projet : **incident-council** — investigation d'incidents de production par
+Projet : **multi-agent-rca** — investigation d'incidents de production par
 plusieurs agents spécialistes indépendants + un arbitre.
 
 Établi le 2026-09-11, avant toute ligne de code. Chaque phase : arborescence,
