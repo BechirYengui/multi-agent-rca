@@ -19,7 +19,7 @@ from council.agents.infra import InfraSpecialist
 from council.agents.retrieval import CaseRetriever
 from council.benchmark.metrics import consensus_analysis, paired, summarize
 from council.benchmark.plots import accuracy_by_category, consensus_vs_accuracy
-from council.benchmark.report import render_benchmark_markdown
+from council.benchmark.report_benchmark import render_benchmark
 from council.benchmark.runner import BenchmarkRunner, pick_by_confidence, read_results
 from council.budget import BudgetExceeded
 from council.data.taxonomy import RootCause
@@ -195,7 +195,7 @@ def test_le_rapport_dit_la_verite_meme_quand_elle_derange(
     bench: tuple[list[Any], Path],
 ) -> None:
     results, _ = bench
-    markdown = render_benchmark_markdown(results, run_id="TEST", model="fake", passes=1)
+    markdown = render_benchmark(results, run_id="TEST", model="fake", passes=1)
     assert "La convergence ne predit PAS l'exactitude" in markdown
     assert "council" in markdown and "vote" in markdown
     assert "McNemar" in markdown

@@ -214,3 +214,27 @@ Conséquence sur l'option B du plan (Sonnet 5 × 3 passes + 1 passe Opus 5) :
 **19 à 31 $**, et non ~25 $. Le plafond par défaut de `.env.example` (25 $) est
 donc trop serré pour la borne haute — à porter à 40 $, ou à découper en deux
 runs.
+
+---
+
+## D18 — Refactor de lisibilité : quatre découpages, zéro changement de comportement (2026-09-12)
+
+Le code marchait, mais trois fichiers avaient grossi et une dépendance allait à
+l'envers. Quatre opérations, chacune vérifiée par les 85 tests **et** par les
+commandes de chiffrage, qui rendent les mêmes nombres à l'octet près :
+
+| Avant | Après | Pourquoi |
+|---|---|---|
+| `agents/keyword.py` importait `data/audit.py` | les deux importent `data/signals.py` | un agent qui dépend d'un module d'**audit** est une inversion de couches : ça invite à mélanger le code qui mesure et le code qui est mesuré |
+| `benchmark/report.py`, 346 lignes, deux rapports + un `TYPE_CHECKING` et un import local pour casser un cycle | `formatting.py` + `report_calibration.py` + `report_benchmark.py` | un cycle d'imports qu'on contourne est un cycle qui signale un mauvais découpage ; découpé, il disparaît |
+| chiffrage à blanc éparpillé (`calibration.py` + bas de `runner.py`) | `benchmark/estimate.py` | une seule règle à faire respecter : **ne jamais recalculer les invites de son côté**, toujours rejouer le vrai pipeline |
+| `orchestration/graph.py`, 250 lignes, câblage et logique mêlés | `nodes.py` (ce que font les nœuds) + `graph.py` (qui parle à qui) | `graph.py` doit se lire comme le schéma du README |
+| `cli.py`, 404 lignes, cinq groupes de commandes | paquet `council/cli/` : une commande par fichier + `context.py` | le prélude de construction (client, disjoncteur, run_id) était répété cinq fois ; il tient maintenant dans `make_client()` |
+
+Vérification de non-régression : `council dataset audit`, `council agents dry-run`
+et `council benchmark dry-run` rendent exactement les mêmes chiffres qu'avant
+(53,3 % de plancher, 1,64 $, 3,48–5,56 $). Un refactor qui change un chiffre n'est
+pas un refactor.
+
+Effet de bord utile : `council investigate` affiche désormais le budget restant —
+la variable existait déjà, elle n'était pas utilisée.

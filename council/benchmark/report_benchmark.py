@@ -1,119 +1,24 @@
-"""Mise en forme des mesures de calibration."""
+"""Rapport de benchmark : les quatre bras, et ce qu'ils disent.
+
+Le rapport calcule lui-meme sa phrase de tete, y compris dans les deux
+formulations ou la baseline gagne ou fait jeu egal. Aucune des trois n'est
+choisie apres coup : elles existent toutes les trois avant le premier run.
+"""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from council.benchmark.calibration import AgentReport, SpecialistRecord
+from council.benchmark.formatting import CATEGORY_LABEL, category_header, pct
+from council.benchmark.metrics import (
+    ArmSummary,
+    abstention_by_category,
+    accuracy_per_pass,
+    best_baseline,
+    consensus_analysis,
+    paired,
+    summarize,
+)
+from council.benchmark.runner import ArmResult
 from council.data.taxonomy import Category
-
-if TYPE_CHECKING:
-    from council.benchmark.metrics import ArmSummary
-    from council.benchmark.runner import ArmResult
-
-CATEGORY_LABEL = {
-    Category.INFRA_PURE.value: "infra pure",
-    Category.APP_PURE.value: "appli pure",
-    Category.HISTORY_REQUIRED.value: "historique",
-    Category.AMBIGUOUS.value: "ambigu",
-}
-
-
-def _pct(value: float) -> str:
-    return f"{value:.1%}"
-
-
-def render_markdown(
-    reports: dict[str, AgentReport],
-    records: list[SpecialistRecord],
-    *,
-    model: str,
-    effort: str,
-    k: int,
-    run_id: str,
-) -> str:
-    agents = sorted(reports)
-    total_usd = sum(report.usd for report in reports.values())
-    cached = sum(int(record.from_cache) for record in records)
-
-    lines: list[str] = [
-        "# Calibration des trois specialistes",
-        "",
-        f"Run `{run_id}` — modele `{model}`, effort `{effort}`, "
-        f"{k} fiches candidates pour l'agent Historique.",
-        f"{len(records)} appels, dont {cached} servis par le cache. Cout : {total_usd:.4f} $.",
-        "",
-        "## 1. Taux de reussite de chaque agent, seul",
-        "",
-        "| Agent | Reussite (IC 95 %) | Reussite hors abstention | Verite dans le top 3 | "
-        "Abstentions | Brier |",
-        "|---|---|---|---|---|---|",
-    ]
-    for agent in agents:
-        report = reports[agent]
-        low, high = report.interval
-        lines.append(
-            f"| `{agent}` | {_pct(report.accuracy)} "
-            f"({_pct(low)}–{_pct(high)}) | {_pct(report.accuracy_when_answering)} | "
-            f"{_pct(report.top3 / report.n if report.n else 0)} | "
-            f"{_pct(report.abstention_rate)} | {report.brier:.3f} |"
-        )
-
-    lines += [
-        "",
-        "## 2. Par categorie d'incident",
-        "",
-        "| Agent | " + " | ".join(CATEGORY_LABEL[c.value] for c in Category) + " |",
-        "|---|" + "---|" * len(Category),
-    ]
-    for agent in agents:
-        report = reports[agent]
-        cells = []
-        for category in Category:
-            pair = report.by_category.get(category.value)
-            cells.append(f"{pair[0]}/{pair[1]}" if pair else "—")
-        lines.append(f"| `{agent}` | " + " | ".join(cells) + " |")
-
-    lines += [
-        "",
-        "## 3. La confiance annoncee porte-t-elle une information ?",
-        "",
-        "Ecart = confiance moyenne annoncee moins exactitude reelle. Positif = sur-confiance.",
-        "",
-        "| Agent | Tranche | n | Confiance moyenne | Exactitude | Ecart |",
-        "|---|---|---|---|---|---|",
-    ]
-    for agent in agents:
-        for bucket in reports[agent].bins:
-            if bucket.count == 0:
-                continue
-            lines.append(
-                f"| `{agent}` | {bucket.low:.1f}–{bucket.high:.1f} | {bucket.count} | "
-                f"{bucket.mean_confidence:.2f} | {_pct(bucket.accuracy)} | "
-                f"{bucket.gap:+.2f} |"
-            )
-
-    lines += ["", "### Verdict sur le routage de l'arbitre", ""]
-    flat = [agent for agent in agents if reports[agent].confidence_is_flat]
-    if flat:
-        lines += [
-            f"**La confiance est plate pour {', '.join('`' + a + '`' for a in flat)}** : "
-            f"plus de 80 % des reponses depassent 0,80. Le repli prevu au plan "
-            f"s'applique — faire deriver la confiance du nombre de preuves citees "
-            f"plutot que d'une auto-evaluation, puis re-mesurer avant d'ecrire "
-            f"l'arbitre.",
-        ]
-    else:
-        lines += [
-            "La confiance discrimine : aucun agent ne depasse 0,80 sur plus de 80 % "
-            "des cas. L'arbitre peut router dessus.",
-        ]
-    return "\n".join(lines) + "\n"
-
-
-# --------------------------------------------------------------------------- #
-# Rapport de benchmark (phase 4)
-# --------------------------------------------------------------------------- #
 
 
 def _headline(council: ArmSummary, baseline: ArmSummary, floor: ArmSummary) -> str:
@@ -144,7 +49,7 @@ def _headline(council: ArmSummary, baseline: ArmSummary, floor: ArmSummary) -> s
     )
 
 
-def render_benchmark_markdown(
+def render_benchmark(
     results: list[ArmResult],
     *,
     run_id: str,
@@ -152,15 +57,6 @@ def render_benchmark_markdown(
     passes: int,
     partial: bool = False,
 ) -> str:
-    from council.benchmark.metrics import (
-        abstention_by_category,
-        accuracy_per_pass,
-        best_baseline,
-        consensus_analysis,
-        paired,
-        summarize,
-    )
-
     summaries = summarize(results, pass_index=1)
     baseline_arm = best_baseline(summaries)
     council = summaries.get("council")
@@ -191,9 +87,9 @@ def render_benchmark_markdown(
         summary = summaries[arm]
         low, high = summary.interval
         lines.append(
-            f"| `{arm}` | {_pct(summary.accuracy)} ({_pct(low)}–{_pct(high)}) | "
+            f"| `{arm}` | {pct(summary.accuracy)} ({pct(low)}–{pct(high)}) | "
             f"{summary.calls_per_incident:.1f} | {summary.usd:.3f} $ | "
-            f"{summary.median_latency_ms:.0f} ms | {_pct(summary.abstentions / summary.n)} |"
+            f"{summary.median_latency_ms:.0f} ms | {pct(summary.abstentions / summary.n)} |"
         )
 
     lines += [
@@ -203,14 +99,13 @@ def render_benchmark_markdown(
         "",
         "## 2. Par categorie d'incident",
         "",
-        "| Bras | " + " | ".join(CATEGORY_LABEL[c.value] for c in Category) + " |",
-        "|---|" + "---|" * len(Category),
+        *category_header(),
     ]
     for arm in sorted(summaries):
         cells = []
         for category in Category:
             value = summaries[arm].category_accuracy(category.value)
-            cells.append(_pct(value) if value is not None else "—")
+            cells.append(pct(value) if value is not None else "—")
         lines.append(f"| `{arm}` | " + " | ".join(cells) + " |")
 
     lines += [
@@ -254,12 +149,12 @@ def render_benchmark_markdown(
         "|---|---|",
     ]
     for kind, (hits, total) in sorted(analysis.by_kind.items()):
-        lines.append(f"| `{kind}` | {hits}/{total} ({_pct(hits / total)}) |")
+        lines.append(f"| `{kind}` | {hits}/{total} ({pct(hits / total)}) |")
     lines += [
         "",
-        f"Unanimite : {_pct(analysis.unanimous_accuracy)} de reussite "
+        f"Unanimite : {pct(analysis.unanimous_accuracy)} de reussite "
         f"({analysis.unanimous_correct}/{analysis.unanimous_total}). "
-        f"Reste : {_pct(analysis.other_accuracy)} "
+        f"Reste : {pct(analysis.other_accuracy)} "
         f"({analysis.other_correct}/{analysis.other_total}). "
         f"Coefficient phi = {analysis.phi:+.3f}.",
         "",
@@ -294,7 +189,7 @@ def render_benchmark_markdown(
     for category in Category:
         rate = abstentions.get(category.value)
         lines.append(
-            f"| {CATEGORY_LABEL[category.value]} | {_pct(rate) if rate is not None else '—'} |"
+            f"| {CATEGORY_LABEL[category.value]} | {pct(rate) if rate is not None else '—'} |"
         )
     ambiguous_rate = abstentions.get(Category.AMBIGUOUS.value, 0.0)
     others = [v for k, v in abstentions.items() if k != Category.AMBIGUOUS.value]
@@ -302,12 +197,12 @@ def render_benchmark_markdown(
     lines += [
         "",
         (
-            f"Le systeme s'abstient {_pct(ambiguous_rate)} du temps sur les cas ambigus "
-            f"contre {_pct(mean_other)} ailleurs : il distingue donc les situations ou il "
+            f"Le systeme s'abstient {pct(ambiguous_rate)} du temps sur les cas ambigus "
+            f"contre {pct(mean_other)} ailleurs : il distingue donc les situations ou il "
             f"ne faut pas trancher."
             if ambiguous_rate > mean_other
             else f"**Le systeme ne s'abstient pas davantage sur les cas ambigus "
-            f"({_pct(ambiguous_rate)}) qu'ailleurs ({_pct(mean_other)}).** Il tranche avec "
+            f"({pct(ambiguous_rate)}) qu'ailleurs ({pct(mean_other)}).** Il tranche avec "
             f"la meme assurance sur des incidents construits pour ne pas etre tranchables, "
             f"ce qui est un defaut et non une performance."
         ),
@@ -326,7 +221,7 @@ def render_benchmark_markdown(
         ]
         for arm in sorted(summaries):
             per_pass = accuracy_per_pass(results, arm)
-            cells = [_pct(per_pass.get(i, 0.0)) for i in range(1, passes + 1)]
+            cells = [pct(per_pass.get(i, 0.0)) for i in range(1, passes + 1)]
             lines.append(f"| `{arm}` | " + " | ".join(cells) + " |")
 
     lines += [

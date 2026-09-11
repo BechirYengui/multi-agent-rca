@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 
 from council.agents.retrieval import CaseRetriever
-from council.cli import kb_matches
 from council.data.generator import build_dataset, build_knowledge_base
+from council.data.specs import kb_matches
 from council.models import Dataset, KnowledgeBase
 
 

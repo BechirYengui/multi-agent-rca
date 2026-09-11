@@ -20,55 +20,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from statistics import median
 
-from council.data.taxonomy import (
-    FAMILY_OF,
-    FAMILY_TOKENS,
-    NEUTRAL_BANDS,
-    RPS_NEUTRAL_RATIO,
-    Category,
-    SymptomFamily,
-)
-from council.models import Dataset, Incident, KnowledgeBase, LogWindow, MetricWindow
-from council.text import jaccard, token_set
+from council.data.signals import log_families, metric_signals
+from council.data.taxonomy import FAMILY_OF, Category
+from council.models import Dataset, Incident, KnowledgeBase
+from council.text import jaccard
 
 JACCARD_MAX_MEDIAN = 0.30
 FLOOR_MIN = 0.35
 FLOOR_MAX = 0.60
-
-
-def metric_signals(window: MetricWindow) -> set[str]:
-    """Ce que la vue « metriques » porte comme signal discriminant.
-
-    Retourne les noms des metriques hors bande neutre, plus `change_event` si la
-    fenetre contient un deploiement ou une bascule de configuration.
-    `error_rate` est exclue par construction : elle est elevee dans les 45
-    incidents, c'est le symptome et non un indice.
-    """
-    signals: set[str] = set()
-    for name, (low, high) in NEUTRAL_BANDS.items():
-        values = [getattr(sample, name) for sample in window.samples]
-        if low is not None and min(values) < low:
-            signals.add(name)
-        if high is not None and max(values) > high:
-            signals.add(name)
-    rps = [sample.rps for sample in window.samples]
-    if min(rps) > 0 and max(rps) / min(rps) > RPS_NEUTRAL_RATIO:
-        signals.add("rps")
-    if window.changes:
-        signals.add("change_event")
-    return signals
-
-
-def log_families(window: LogWindow) -> set[SymptomFamily]:
-    """Familles de symptomes dont le vocabulaire apparait dans les journaux."""
-    tokens: set[str] = set()
-    for line in window.lines:
-        tokens |= token_set(line.message)
-    for trace in window.traces:
-        tokens |= token_set(trace.exception)
-        for frame in trace.frames:
-            tokens |= token_set(frame)
-    return {family for family, family_tokens in FAMILY_TOKENS.items() if tokens & family_tokens}
 
 
 @dataclass

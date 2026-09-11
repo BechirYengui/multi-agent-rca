@@ -17,7 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from council.agents.retrieval import CaseRetriever
-from council.data.audit import log_families
+from council.data.signals import log_families
 from council.data.taxonomy import CAUSES_OF_FAMILY, RootCause
 from council.models import Incident, MetricWindow
 

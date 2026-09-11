@@ -26,7 +26,7 @@ from council.benchmark.stats import (
     wilson_interval,
 )
 from council.data.taxonomy import Category
-from council.llm.client import ASSUMED_OUTPUT_TOKENS, FakeClient, LLMClient, estimate_tokens
+from council.llm.client import LLMClient
 from council.models import Dataset, Incident
 
 # Seuil au-dela duquel on considere que la confiance ne discrimine plus rien.
@@ -160,42 +160,3 @@ def summarize(records: list[SpecialistRecord]) -> dict[str, AgentReport]:
             usd=sum(item.usd for item in items),
         )
     return reports
-
-
-@dataclass(frozen=True)
-class Estimate:
-    calls: int
-    input_tokens: int
-    output_tokens: int
-
-    def usd(self, model: str) -> float:
-        from council.budget import cost_usd
-
-        return cost_usd(model, self.input_tokens, self.output_tokens)
-
-
-ABSTAIN_PAYLOAD: dict[str, object] = {
-    "cause": "insufficient_evidence",
-    "confidence": 0.0,
-    "evidence": [],
-    "alternatives": [],
-    "reasoning": "chiffrage a blanc",
-}
-
-
-def dry_run(dataset: Dataset, specialists: Sequence[Specialist], effort: str = "low") -> Estimate:
-    """Chiffre le run AVANT le premier appel facture.
-
-    On ne re-implemente pas la construction des invites : on fait tourner le
-    pipeline reel contre un client simule qui enregistre ce qui serait parti.
-    Un chiffrage qui recalculerait les invites de son cote finirait tot ou tard
-    par mesurer autre chose que ce qui part vraiment.
-    """
-    fake = FakeClient(lambda **_: ABSTAIN_PAYLOAD)
-    run_calibration(dataset, specialists, fake, effort)
-    input_tokens = sum(estimate_tokens(call.system + call.user) for call in fake.calls)
-    return Estimate(
-        calls=len(fake.calls),
-        input_tokens=input_tokens,
-        output_tokens=ASSUMED_OUTPUT_TOKENS * len(fake.calls),
-    )

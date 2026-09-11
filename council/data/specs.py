@@ -305,3 +305,12 @@ SPECS: tuple[IncidentSpec, ...] = (
         "qu'il faut traiter pour retablir le service.",
     ),
 )
+
+
+def kb_matches() -> dict[str, str]:
+    """Incident de la categorie `history_required` -> fiche qui le resout.
+
+    Vit ici et non dans la CLI : c'est une propriete du jeu de donnees, dont le
+    garde anti-fuite et la mesure de rappel ont besoin autant que l'interface.
+    """
+    return {spec.id: spec.kb_match for spec in SPECS if spec.kb_match}

@@ -135,7 +135,7 @@ NEUTRAL_BANDS: dict[str, tuple[float | None, float | None]] = {
     "downstream_p99_ms": (None, 260.0),
     "db_pool_wait_ms": (None, 25.0),
     "cache_hit_ratio": (0.85, None),
-    # rps : la neutralite est RELATIVE (cf. council.data.audit.rps_is_neutral),
+    # rps : la neutralite est RELATIVE (cf. council.data.signals.metric_signals),
     # un service a 200 rps et un autre a 4000 sont tous deux normaux.
     "rps": (None, None),
 }

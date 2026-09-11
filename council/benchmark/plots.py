@@ -14,8 +14,8 @@ import matplotlib
 matplotlib.use("Agg")  # aucun affichage : le poste n'a pas de serveur graphique garanti
 import matplotlib.pyplot as plt
 
+from council.benchmark.formatting import CATEGORY_LABEL
 from council.benchmark.metrics import consensus_analysis, summarize
-from council.benchmark.report import CATEGORY_LABEL
 from council.benchmark.runner import ArmResult
 from council.data.taxonomy import Category
 
