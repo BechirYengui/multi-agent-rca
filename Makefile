@@ -31,8 +31,17 @@ dataset: ## Regenere data/incidents/ et data/kb/ (deterministe, seed fixe)
 dataset-report: ## Recalcule les 3 gardes anti-triche + le plancher mots-cles
 	$(UV) run council dataset audit
 
-benchmark: ## Phase 4
-	@echo "Pas encore implemente (phase 4)."
+dry-run: ## Chiffre un run complet AVANT de depenser quoi que ce soit
+	$(UV) run council agents dry-run
+
+calibrate: ## Mesure chaque specialiste seul (premier appel facture)
+	$(UV) run council agents calibrate
+
+benchmark: ## Les quatre bras sur les 45 incidents + rapport + graphiques
+	$(UV) run council benchmark run
+
+benchmark-variance: ## Trois passes sans cache, pour mesurer la variance
+	$(UV) run council benchmark run --passes 3 --no-cache
 
 clean: ## Supprime les caches
 	rm -rf .pytest_cache .mypy_cache .ruff_cache

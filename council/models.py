@@ -147,6 +147,11 @@ class SpecialistName(StrEnum):
     INFRA = "infra"
     APP = "app"
     HISTORY = "history"
+    # La baseline mono-agent produit le meme objet `Hypothesis` que les
+    # specialistes : meme schema, meme droit de s'abstenir, meme taxonomie
+    # fermee. C'est la condition pour que la comparaison porte sur
+    # l'architecture et non sur la forme de la sortie.
+    BASELINE = "baseline"
 
 
 class Hypothesis(_Frozen):

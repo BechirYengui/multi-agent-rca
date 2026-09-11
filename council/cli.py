@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from datetime import UTC, datetime
+from typing import Any
 
 import typer
 
@@ -16,7 +17,9 @@ from council.agents.infra import InfraSpecialist
 from council.agents.keyword import classify
 from council.agents.retrieval import CaseRetriever
 from council.benchmark.calibration import dry_run, run_calibration, summarize
-from council.benchmark.report import render_markdown
+from council.benchmark.plots import accuracy_by_category, consensus_vs_accuracy
+from council.benchmark.report import render_benchmark_markdown, render_markdown
+from council.benchmark.runner import BenchmarkRunner, read_results
 from council.budget import BudgetExceeded, BudgetGuard
 from council.config import (
     CACHE_DIR,
@@ -39,7 +42,9 @@ app = typer.Typer(help="incident-council", no_args_is_help=True)
 dataset_app = typer.Typer(help="Jeu de donnees synthetique", no_args_is_help=True)
 agents_app = typer.Typer(help="Les trois specialistes", no_args_is_help=True)
 app.add_typer(dataset_app, name="dataset")
+benchmark_app = typer.Typer(help="Les quatre bras", no_args_is_help=True)
 app.add_typer(agents_app, name="agents")
+app.add_typer(benchmark_app, name="benchmark")
 
 
 def build_specialists(retriever: CaseRetriever, k: int) -> list[BaseSpecialist]:
@@ -274,3 +279,86 @@ def replay_cmd(
     ids = [incident_id] if incident_id else sorted({r["incident_id"] for r in records})
     for current in ids:
         typer.echo(render_reasoning(records, current))
+
+
+@benchmark_app.command("run")
+def benchmark_run(
+    limit: int = typer.Option(0, help="Nombre d'incidents (0 = les 45)"),
+    passes: int = typer.Option(1, help="Passes successives, pour mesurer la variance"),
+    k: int = typer.Option(5),
+    efforts: str = typer.Option("medium,high", help="Niveaux d'effort de la baseline"),
+    effort_specialist: str = typer.Option("low"),
+    effort_arbiter: str = typer.Option("high"),
+    model: str = typer.Option(""),
+    budget: float = typer.Option(0.0),
+    max_rounds: int = typer.Option(2),
+    no_cache: bool = typer.Option(False, "--no-cache", help="Obligatoire au-dela d'une passe"),
+) -> None:
+    """Fait tourner les quatre bras sur les memes incidents."""
+    settings = load_settings()
+    chosen = model or settings.model
+    if passes > 1 and not no_cache:
+        typer.echo(
+            "Refus : mesurer la variance avec le cache actif renverrait les memes\n"
+            "reponses a chaque passe. Ajouter --no-cache."
+        )
+        raise typer.Exit(code=1)
+
+    guard = BudgetGuard(limit_usd=budget or settings.budget_usd)
+    client = AnthropicClient(
+        model=chosen,
+        budget=guard,
+        cache_dir=CACHE_DIR / "llm",
+        cache_enabled=settings.cache_enabled and not no_cache,
+    )
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    out_dir = RESULTS_DIR / "raw" / run_id
+    retriever = CaseRetriever(load_kb().entries)
+    runner = BenchmarkRunner(
+        dataset=load_dataset(),
+        retriever=retriever,
+        specialists=build_specialists(retriever, k),
+        client=client,
+        run_id=run_id,
+        out_dir=out_dir,
+        effort_specialist=effort_specialist,
+        effort_arbiter=effort_arbiter,
+        baseline_efforts=[e.strip() for e in efforts.split(",") if e.strip()],
+        k=k,
+        max_rounds=max_rounds,
+    )
+    results = runner.run(passes=passes, limit=limit or None)
+    if runner.partial:
+        typer.echo(f"BUDGET EPUISE : rapport partiel sur {len(results)} lignes.")
+
+    _write_benchmark_outputs(results, run_id, chosen, passes, runner.partial)
+    typer.echo(f"depense reelle : {guard.spent_usd:.4f} $ sur {guard.limit_usd:.2f} $")
+
+
+@benchmark_app.command("report")
+def benchmark_report(
+    run_id: str = typer.Argument(...),
+    model: str = typer.Option(""),
+    passes: int = typer.Option(1),
+) -> None:
+    """Regenere le rapport depuis les traces brutes. Aucun appel, aucun cout."""
+    path = RESULTS_DIR / "raw" / run_id / "arms.jsonl"
+    if not path.exists():
+        typer.echo(f"resultats introuvables : {path}")
+        raise typer.Exit(code=1)
+    results = read_results(path)
+    _write_benchmark_outputs(results, run_id, model or load_settings().model, passes, False)
+
+
+def _write_benchmark_outputs(
+    results: list[Any], run_id: str, model: str, passes: int, partial: bool
+) -> None:
+    markdown = render_benchmark_markdown(
+        results, run_id=run_id, model=model, passes=passes, partial=partial
+    )
+    (PROJECT_ROOT / "docs" / "benchmark.md").write_text(markdown, encoding="utf-8")
+    figure_1 = accuracy_by_category(results, RESULTS_DIR / "accuracy_by_category.png")
+    figure_2 = consensus_vs_accuracy(results, RESULTS_DIR / "consensus_vs_accuracy.png")
+    typer.echo(markdown)
+    typer.echo(f"rapport   : {PROJECT_ROOT / 'docs' / 'benchmark.md'}")
+    typer.echo(f"graphiques: {figure_1}, {figure_2}")

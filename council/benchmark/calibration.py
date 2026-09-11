@@ -183,9 +183,7 @@ ABSTAIN_PAYLOAD: dict[str, object] = {
 }
 
 
-def dry_run(
-    dataset: Dataset, specialists: Sequence[Specialist], effort: str = "low"
-) -> Estimate:
+def dry_run(dataset: Dataset, specialists: Sequence[Specialist], effort: str = "low") -> Estimate:
     """Chiffre le run AVANT le premier appel facture.
 
     On ne re-implemente pas la construction des invites : on fait tourner le

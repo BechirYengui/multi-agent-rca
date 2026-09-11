@@ -9,6 +9,11 @@ Investigation d'incidents de production par trois agents specialistes
 independants (infrastructure, application, historique) et un arbitre, comparee
 mesure en main a un agent unique recevant tout le contexte.
 
-Etat : **phase 2** — jeu de donnees valide (`docs/dataset.md`), les trois
-specialistes sont ecrits et testes hors reseau ; la mesure de calibration
-attend une cle API. Voir `docs/plan.md` et `docs/decisions.md`.
+Etat : **phases 1 a 4 ecrites et testees hors reseau** (85 tests, 0 $).
+Le jeu de donnees est valide (`docs/dataset.md`) ; les trois specialistes,
+l'arbitre, le graphe LangGraph, la baseline et le harnais de benchmark
+tournent de bout en bout contre un client simule. **Il manque les mesures
+reelles** : elles attendent une cle API.
+
+Voir `docs/plan.md` (les 5 phases), `docs/dataset.md` (les 3 gardes
+anti-triche) et `docs/decisions.md` (16 arbitrages, chacun avec sa mesure).

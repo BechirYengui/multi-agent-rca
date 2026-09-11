@@ -115,3 +115,79 @@ mesurer autre chose que ce qui part vraiment.
 
 **Mesure** : 135 appels, ~213 000 jetons d'entrée → **1,64 $** en Sonnet 5,
 **4,10 $** en Opus 5.
+
+---
+
+## D10 — Quatre bras de comparaison, et l'un d'eux est gratuit (2026-09-11)
+
+Comparer « multi-agents » à « agent unique » ne sépare pas deux choses pourtant
+différentes : **découper le problème en trois vues** et **avoir un arbitre
+LLM**. Deux bras intermédiaires les isolent :
+
+| Bras | Appels LLM / incident | Ce qu'il isole |
+|---|---|---|
+| `floor` | 0 | la difficulté réelle du jeu de données |
+| `baseline` | 1 | l'apport de la décomposition |
+| `vote` | **0** | l'apport de l'arbitre |
+| `council` | 3 à 8 | — |
+
+Le bras `vote` rejoue les hypothèses du **premier tour** déjà payées par le
+conseil et prend simplement la plus confiante : il ne coûte pas un jeton. Si
+l'arbitre ne le bat pas, il ne paie pas son coût, et le rapport l'écrira.
+
+---
+
+## D11 — L'arbitre ne voit jamais les données brutes (2026-09-11)
+
+Il ne reçoit que les trois hypothèses, leurs preuves citées et leurs confiances.
+S'il pouvait relire les métriques et les journaux, il redeviendrait un agent
+unique avec trois résumés en plus — et la comparaison au bras `baseline`
+perdrait tout son sens, puisque les deux verraient la même chose.
+
+---
+
+## D12 — Trois tâches d'arbitre, trois schémas, trois appels (2026-09-11)
+
+Un schéma unique qui autoriserait à la fois « voici la cause » et « je ne sais
+pas » laisserait le modèle choisir la sortie confortable. Ici, c'est le routeur
+— déterministe et testé — qui décide de la tâche ; l'arbitre ne fait que
+l'exécuter.
+
+---
+
+## D13 — Le test apparié ne fusionne pas les passes (2026-09-11)
+
+Deux passes du même incident ne sont pas deux observations indépendantes. Les
+empiler gonflerait artificiellement la puissance du McNemar. L'analyse primaire
+porte donc sur **la passe 1**, et les autres passes servent à mesurer la
+variance, pas à grossir l'échantillon.
+
+---
+
+## D14 — Le seuil de 10 paires discordantes l'emporte sur une p-valeur basse (2026-09-11)
+
+Constaté sur le run simulé : `council` vs `vote` donne 9 paires discordantes,
+toutes dans le même sens, soit p = 0,004. La règle posée avant le premier run
+exige 10 paires minimum. Le rapport affiche donc **« non concluant »**, tout en
+publiant la p-valeur.
+
+Céder ici reviendrait à transformer une règle en filtre appliqué après coup aux
+résultats qui dérangent. Une règle qu'on suspend quand elle gêne n'est pas une
+règle.
+
+---
+
+## D15 — Mesurer la variance avec le cache actif est refusé par la CLI (2026-09-11)
+
+`council benchmark run --passes 3` sort en erreur si `--no-cache` est absent :
+les trois passes renverraient les mêmes réponses mises en cache et la « variance
+mesurée » serait exactement zéro, par construction. Un piège qu'on ne peut pas
+se contenter de documenter.
+
+---
+
+## D16 — La baseline tourne à deux niveaux d'effort, on retient son meilleur score (2026-09-11)
+
+Elle coûte ~1 appel par incident. Lui donner sa meilleure chance coûte quelques
+dollars et c'est la seule façon de rendre un éventuel écart crédible. Le rapport
+indique explicitement quel niveau a été retenu.

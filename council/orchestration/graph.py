@@ -236,9 +236,15 @@ def build_graph(
     return graph.compile()
 
 
-def investigate(graph: Any, incident: Incident) -> Verdict:
+def investigate_state(graph: Any, incident: Incident) -> dict[str, Any]:
+    """Etat final complet. Le benchmark en a besoin : le bras « vote » se derive
+    des hypotheses du PREMIER tour, sans un appel de plus."""
     final: dict[str, Any] = graph.invoke(
         {"incident": incident, "hypotheses": [], "clarifications": [], "usages": [], "rounds": 0}
     )
-    verdict: Verdict = final["verdict"]
+    return final
+
+
+def investigate(graph: Any, incident: Incident) -> Verdict:
+    verdict: Verdict = investigate_state(graph, incident)["verdict"]
     return verdict
