@@ -1,0 +1,276 @@
+{
+  "seed": 20260911,
+  "generator_version": "1.0",
+  "entries": [
+    {
+      "id": "KB-01",
+      "title": "Temps de calcul sature sur le service de recherche",
+      "symptoms": "Les temps de reponse ont triple sans que le volume d'appels ne change.",
+      "diagnosis": "Une requete mal indexee consommait tout le temps de calcul disponible sur les machines du groupe.",
+      "resolution": "Index ajoute, garde-fou sur la duree maximale d'une requete.",
+      "root_cause": "cpu_saturation",
+      "resolved_on": "2025-11-04"
+    },
+    {
+      "id": "KB-02",
+      "title": "Croissance continue de l'occupation memoire d'un worker",
+      "symptoms": "L'occupation grimpait regulierement jusqu'a l'arret brutal du processus, plusieurs fois par jour.",
+      "diagnosis": "Un tampon interne conservait chaque message traite sans jamais le liberer.",
+      "resolution": "Liberation explicite apres traitement.",
+      "root_cause": "memory_leak",
+      "resolved_on": "2025-09-17"
+    },
+    {
+      "id": "KB-03",
+      "title": "Rafales d'erreurs periodiques sur le service de facturation",
+      "symptoms": "Quatre fois par jour, une rafale d'echecs d'une dizaine de minutes, calee sur les heures rondes ; le reste du temps, aucun probleme.",
+      "diagnosis": "Un traitement par lots planifie toutes les six heures ouvrait soixante connexions simultanees sans les rendre ; le reservoir applicatif restait vide pendant toute la duree du lot.",
+      "resolution": "Pool dedie au traitement par lots, plafonne a dix connexions.",
+      "root_cause": "db_connection_pool_exhaustion",
+      "resolved_on": "2026-02-11"
+    },
+    {
+      "id": "KB-04",
+      "title": "Expirations en cascade vers un service tiers",
+      "symptoms": "Le p99 du service appele est passe de 150 ms a plusieurs secondes.",
+      "diagnosis": "Le fournisseur avait reduit sa capacite sans prevenir.",
+      "resolution": "Delai d'attente abaisse, disjoncteur et reponse degradee mis en place.",
+      "root_cause": "downstream_timeout",
+      "resolved_on": "2025-12-02"
+    },
+    {
+      "id": "KB-05",
+      "title": "Regression introduite par une mise en production",
+      "symptoms": "Les erreurs ont commence a la minute exacte de la bascule, sur toutes les instances a la fois.",
+      "diagnosis": "Un changement de format de reponse non retro-compatible.",
+      "resolution": "Retour arriere immediat puis correctif.",
+      "root_cause": "deploy_regression",
+      "resolved_on": "2026-01-20"
+    },
+    {
+      "id": "KB-06",
+      "title": "Affluence exceptionnelle du lundi matin",
+      "symptoms": "Chaque lundi entre huit et dix heures, la charge double et une partie des appels est rejetee.",
+      "diagnosis": "Aucune anomalie technique : la frequentation reelle depassait la capacite provisionnee.",
+      "resolution": "Provisionnement calendaire avant la plage concernee.",
+      "root_cause": "traffic_spike",
+      "resolved_on": "2025-10-13"
+    },
+    {
+      "id": "KB-07",
+      "title": "Interruption brutale des flux sortants vers un prestataire",
+      "symptoms": "A partir de zero heure, la totalite des echanges vers un unique prestataire externe tombe en echec ; les autres destinations restent saines.",
+      "diagnosis": "Le certificat presente par le prestataire avait atteint sa date de fin de validite ; la negociation echouait des la premiere poignee de main.",
+      "resolution": "Chaine mise a jour cote prestataire, supervision de la date de validite.",
+      "root_cause": "cert_expiry",
+      "resolved_on": "2026-03-01"
+    },
+    {
+      "id": "KB-08",
+      "title": "Volume de stockage sature sur les machines d'ingestion",
+      "symptoms": "Les ecritures echouaient, le service refusait toute nouvelle tache.",
+      "diagnosis": "Les fichiers intermediaires n'etaient plus purges depuis un changement de chemin.",
+      "resolution": "Purge retablie, alerte a 85 %.",
+      "root_cause": "disk_full",
+      "resolved_on": "2025-08-29"
+    },
+    {
+      "id": "KB-09",
+      "title": "Perte de communication entre deux zones",
+      "symptoms": "Les appels entre deux zones echouaient, plusieurs services sans rapport etaient touches en meme temps.",
+      "diagnosis": "Une regle de filtrage deployee par l'equipe reseau bloquait le trafic inter-zones.",
+      "resolution": "Regle annulee.",
+      "root_cause": "network_partition",
+      "resolved_on": "2025-07-22"
+    },
+    {
+      "id": "KB-10",
+      "title": "Effondrement du taux de succes du cache produit",
+      "symptoms": "Le taux de succes est tombe sous 10 %, le temps de calcul a explose.",
+      "diagnosis": "Une purge complete avait ete declenchee en pleine journee.",
+      "resolution": "Purge progressive, prechauffage avant ouverture.",
+      "root_cause": "cache_stampede",
+      "resolved_on": "2026-04-08"
+    },
+    {
+      "id": "KB-11",
+      "title": "Panne limitee a une seule zone commerciale",
+      "symptoms": "Les utilisateurs d'un pays voyaient systematiquement une erreur, tandis que le reste du monde n'observait rien d'anormal.",
+      "diagnosis": "Un parametre de routage avait ete modifie pour cette zone seulement, lors d'une operation manuelle non tracee.",
+      "resolution": "Retour au parametre precedent, operation desormais tracee.",
+      "root_cause": "config_change",
+      "resolved_on": "2026-05-19"
+    },
+    {
+      "id": "KB-12",
+      "title": "Reservoir de connexions epuise aux heures de pointe",
+      "symptoms": "Les demandes s'accumulaient en file alors que la base repondait en quelques millisecondes.",
+      "diagnosis": "Le dimensionnement du reservoir n'avait pas suivi la montee du trafic.",
+      "resolution": "Reservoir redimensionne, file bornee.",
+      "root_cause": "db_connection_pool_exhaustion",
+      "resolved_on": "2025-06-30"
+    },
+    {
+      "id": "KB-13",
+      "title": "Bascule de parametre a l'origine d'un rejet massif",
+      "symptoms": "Toutes les requetes ont ete refusees des l'activation d'une option de validation stricte.",
+      "diagnosis": "L'option rejetait des donnees historiques pourtant valides.",
+      "resolution": "Option desactivee, donnees migrees avant reactivation.",
+      "root_cause": "config_change",
+      "resolved_on": "2026-02-27"
+    },
+    {
+      "id": "KB-14",
+      "title": "Pointe d'erreurs au changement d'heure",
+      "symptoms": "Chaque debut d'heure, une pointe d'echecs de quelques minutes, puis tout rentre dans l'ordre sans aucune intervention.",
+      "diagnosis": "Toutes les entrees memorisees expiraient a la meme seconde ; des milliers de calculs identiques repartaient en parallele.",
+      "resolution": "Duree de validite desynchronisee, verrou de recalcul unique.",
+      "root_cause": "cache_stampede",
+      "resolved_on": "2026-06-05"
+    },
+    {
+      "id": "KB-15",
+      "title": "Poignee de main refusee sur la passerelle interne",
+      "symptoms": "Toutes les connexions securisees entrantes ont ete refusees d'un coup.",
+      "diagnosis": "Le certificat interne n'avait pas ete renouvele avant son terme.",
+      "resolution": "Renouvellement automatise.",
+      "root_cause": "cert_expiry",
+      "resolved_on": "2025-05-12"
+    },
+    {
+      "id": "KB-16",
+      "title": "Montee de version d'une bibliotheque d'analyse",
+      "symptoms": "Des exceptions inedites apparaissaient dans du code non modifie.",
+      "diagnosis": "La nouvelle version avait change le type retourne par une fonction publique.",
+      "resolution": "Version figee, adaptation du code appelant.",
+      "root_cause": "dependency_version_bug",
+      "resolved_on": "2026-01-09"
+    },
+    {
+      "id": "KB-17",
+      "title": "Campagne publicitaire non annoncee",
+      "symptoms": "Le nombre d'appels a ete multiplie par cinq en une dizaine de minutes.",
+      "diagnosis": "Rien d'anormal techniquement : la demande depassait la capacite.",
+      "resolution": "Procedure d'annonce prealable des campagnes.",
+      "root_cause": "traffic_spike",
+      "resolved_on": "2025-11-28"
+    },
+    {
+      "id": "KB-18",
+      "title": "Echecs reserves aux envois volumineux",
+      "symptoms": "Seuls les envois depassant quelques megaoctets echouaient ; les petits passaient sans erreur.",
+      "diagnosis": "Une montee de version de la bibliotheque d'encodage avait change la gestion des tampons au-dela d'un certain seuil.",
+      "resolution": "Retour a la version precedente, puis correctif amont.",
+      "root_cause": "dependency_version_bug",
+      "resolved_on": "2026-03-24"
+    },
+    {
+      "id": "KB-19",
+      "title": "Accalmie systematique apres chaque redemarrage",
+      "symptoms": "Apres un redemarrage, une demi-heure sans incident, puis les erreurs revenaient.",
+      "diagnosis": "Le reservoir de connexions repartait vide et se saturait de nouveau au meme rythme : le redemarrage ne faisait que reculer l'echeance.",
+      "resolution": "Connexions liberees en fin de transaction.",
+      "root_cause": "db_connection_pool_exhaustion",
+      "resolved_on": "2025-10-02"
+    },
+    {
+      "id": "KB-20",
+      "title": "Creneau quotidien d'erreurs en fin de matinee",
+      "symptoms": "Tous les jours a la meme heure, une vingtaine de minutes difficiles, puis un retour a la normale.",
+      "diagnosis": "Un rapport quotidien declenchait un afflux d'appels concentres sur cette plage.",
+      "resolution": "Rapport etale sur deux heures.",
+      "root_cause": "traffic_spike",
+      "resolved_on": "2026-04-30"
+    },
+    {
+      "id": "KB-21",
+      "title": "Echecs cantonnes a la plage de traitement de nuit",
+      "symptoms": "Entre deux et quatre heures du matin uniquement, une part importante des appels n'aboutissait pas.",
+      "diagnosis": "Le service appele consacrait ses ressources a son traitement nocturne et repondait au-dela du delai accorde.",
+      "resolution": "Traitement nocturne decale, delai revu.",
+      "root_cause": "downstream_timeout",
+      "resolved_on": "2026-05-06"
+    },
+    {
+      "id": "KB-22",
+      "title": "Une machine du groupe systematiquement en cause",
+      "symptoms": "Les echecs ne concernaient que les appels servis par une machine precise.",
+      "diagnosis": "Cette machine se trouvait dans une zone dont la route de retour avait disparu : elle ne joignait plus ses pairs.",
+      "resolution": "Route retablie.",
+      "root_cause": "network_partition",
+      "resolved_on": "2025-09-08"
+    },
+    {
+      "id": "KB-23",
+      "title": "Zone geographique unique touchee",
+      "symptoms": "Seuls les utilisateurs d'un continent rencontraient des echecs.",
+      "diagnosis": "Le point de presence local avait perdu le lien avec la zone principale.",
+      "resolution": "Bascule sur le point de presence de secours.",
+      "root_cause": "network_partition",
+      "resolved_on": "2026-06-21"
+    },
+    {
+      "id": "KB-24",
+      "title": "Une instance sur trois isolee du reste du groupe",
+      "symptoms": "Un seul membre du groupe presentait des echecs ; apres redemarrage, le probleme se deplacait sur un autre membre.",
+      "diagnosis": "La table de routage d'une machine hote ne propageait pas les adresses de l'autre zone ; l'instance qui y atterrissait perdait le contact.",
+      "resolution": "Table de routage corrigee sur l'hote.",
+      "root_cause": "network_partition",
+      "resolved_on": "2026-07-14"
+    },
+    {
+      "id": "KB-25",
+      "title": "Ralentissement d'un fournisseur de calcul de taxes",
+      "symptoms": "Les appels sortants mettaient plusieurs secondes, sans erreur locale.",
+      "diagnosis": "Le fournisseur avait migre son infrastructure la nuit precedente.",
+      "resolution": "Delai releve temporairement, reponse mise en cache.",
+      "root_cause": "downstream_timeout",
+      "resolved_on": "2025-12-15"
+    },
+    {
+      "id": "KB-26",
+      "title": "Retour cyclique des erreurs apres chaque redemarrage",
+      "symptoms": "Apres un redemarrage, une accalmie d'environ trois quarts d'heure, puis les memes echecs revenaient a l'identique.",
+      "diagnosis": "Une structure interne grossissait sans jamais etre videe ; le processus finissait par ne plus pouvoir allouer quoi que ce soit.",
+      "resolution": "Correction de la retention, redemarrage preventif en attendant.",
+      "root_cause": "memory_leak",
+      "resolved_on": "2026-07-29"
+    },
+    {
+      "id": "KB-27",
+      "title": "Pointe reguliere au debut de chaque heure",
+      "symptoms": "Une pointe d'echecs de deux a trois minutes, a chaque changement d'heure.",
+      "diagnosis": "Une tache planifiee rechargeait les parametres et remplacait une valeur valide par une valeur vide pendant le rechargement.",
+      "resolution": "Rechargement atomique.",
+      "root_cause": "config_change",
+      "resolved_on": "2026-08-03"
+    },
+    {
+      "id": "KB-28",
+      "title": "Erreurs quotidiennes de courte duree, toujours a la meme heure",
+      "symptoms": "Chaque jour a la meme heure, une vingtaine de minutes d'echecs, puis un retour a la normale sans intervention humaine.",
+      "diagnosis": "Un export quotidien saturait le volume de stockage jusqu'a ce que la purge automatique libere la place.",
+      "resolution": "Volume agrandi, purge declenchee avant l'export.",
+      "root_cause": "disk_full",
+      "resolved_on": "2026-08-17"
+    },
+    {
+      "id": "KB-29",
+      "title": "Un unique serveur en cause dans un groupe sain",
+      "symptoms": "Les echecs ne concernaient que les requetes servies par une machine du groupe ; sortie du groupe, tout redevenait normal immediatement.",
+      "diagnosis": "Un processus resident consommait la quasi-totalite du temps de calcul de cette machine.",
+      "resolution": "Processus resident supprime, alerte par machine ajoutee.",
+      "root_cause": "cpu_saturation",
+      "resolved_on": "2026-08-25"
+    },
+    {
+      "id": "KB-30",
+      "title": "Incident recurrent cale sur la fenetre de mise en production",
+      "symptoms": "Chaque semaine, le meme soir, les erreurs reapparaissaient ; les autres jours de la semaine, rien.",
+      "diagnosis": "La mise en production hebdomadaire embarquait une modification fautive restee non detectee par les tests.",
+      "resolution": "Mise en production bloquee jusqu'a correction, test de non-regression ajoute.",
+      "root_cause": "deploy_regression",
+      "resolved_on": "2026-09-02"
+    }
+  ]
+}
