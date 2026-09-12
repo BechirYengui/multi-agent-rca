@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Un seul run par branche : pousser trois fois d'affilee ne doit pas empiler
+# trois jobs identiques.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # `uv sync --frozen` refuse de modifier uv.lock : si une dependance a
+      # bouge sans que le verrou soit commite, le job echoue ici plutot que de
+      # tester silencieusement un autre jeu de versions.
+      - name: Installer les dependances
+        run: uv sync --all-extras --group dev --frozen
+
+      - name: Lint et typage
+        run: make lint
+
+      # Toute la suite tourne hors reseau contre un client LLM simule : la CI
+      # ne consomme aucun jeton et n'a besoin d'aucun secret.
+      - name: Tests
+        run: make test
+
+      # Le jeu de donnees est versionne. S'il ne se regenere pas a l'identique,
+      # les chiffres publies dans docs/ et dans le README ne decrivent plus rien.
+      - name: Le jeu de donnees est reproductible
+        run: |
+          uv run council dataset build
+          git diff --exit-code -- data/
+
+      - name: Les trois gardes anti-triche
+        run: uv run council dataset audit

@@ -238,3 +238,57 @@ pas un refactor.
 
 Effet de bord utile : `council investigate` affiche désormais le budget restant —
 la variable existait déjà, elle n'était pas utilisée.
+
+---
+
+## D19 — Le README est vérifié par un test, pas par la discipline (2026-09-12)
+
+`tests/test_readme_claims.py` **extrait** chaque chiffre du README par expression
+régulière, puis le recalcule depuis le code. Aucune valeur n'est recopiée dans le
+test : corriger l'un sans l'autre échoue dans les deux sens.
+
+Sont vérifiés : le nombre d'incidents, de causes, de familles et la répartition
+par catégorie ; les trois gardes (0 fuite, Jaccard médian, plancher et son 100 %
+sur l'infra pure) ; le rappel BM25 aux trois valeurs de k ; l'encadrement de coût
+en Sonnet 5 ; et le nombre de tests de la suite.
+
+**Il a servi dès sa première exécution** : le README annonçait « 85 tests », la
+suite en collectait 99. C'est exactement la dérive qu'il existe pour attraper —
+le code avance, la vitrine reste au premier jour, et personne ne le voit.
+
+---
+
+## D20 — Trois fragilités corrigées, aucune visible en test (2026-09-12)
+
+Trouvées en relisant, pas en échouant. C'est ce qui les rend intéressantes.
+
+| Où | Problème | Correctif |
+|---|---|---|
+| `runner.py` | `hypotheses[:3]` pour isoler le premier tour : vrai tant que LangGraph ajoute les trois branches parallèles avant toute relance — exact aujourd'hui, garanti nulle part | `first_round()` filtre par agent, sans supposer d'ordre |
+| `runner.py` | `VOTE_TIEBREAK.index(agent)` lève `ValueError` sur un agent absent de la table — la baseline produit le même objet `Hypothesis` sans être un spécialiste | table de rang avec valeur par défaut |
+| `llm/client.py` | `json.loads()` nu : une réponse non conforme donnait une pile d'exception au lieu de la réponse fautive | `LLMError` avec les 200 premiers caractères |
+
+Les deux premières n'auraient jamais échoué sur le jeu de données actuel. Elles
+auraient échoué le jour où un agent aurait été ajouté ou un nœud réordonné — soit
+au pire moment.
+
+---
+
+## D21 — Intégration continue : deux vérifications en plus du lint et des tests (2026-09-12)
+
+`make lint` et `make test` vont de soi. Les deux autres étapes sont propres au
+projet :
+
+- **le jeu de données doit se régénérer à l'identique** (`council dataset build`
+  puis `git diff --exit-code -- data/`). Le fichier est versionné et c'est de lui
+  que sortent les chiffres publiés : s'il diverge du générateur, `docs/` et le
+  README ne décrivent plus rien ;
+- **les trois gardes anti-triche doivent passer** (`council dataset audit`, qui
+  sort en code 1 sinon).
+
+`uv sync --frozen` refuse de modifier `uv.lock` : une dépendance qui bouge sans
+que le verrou soit commité fait échouer le job, au lieu de tester silencieusement
+un autre jeu de versions.
+
+La suite tourne hors réseau contre un client simulé : la CI ne consomme aucun
+jeton et n'a besoin d'aucun secret.

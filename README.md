@@ -1,5 +1,7 @@
 # multi-agent-rca
 
+[![CI](https://github.com/BechirYengui/multi-agent-rca/actions/workflows/ci.yml/badge.svg)](https://github.com/BechirYengui/multi-agent-rca/actions/workflows/ci.yml)
+
 **Trois agents spécialistes analysent un incident de production en parallèle — chacun
 sur une source différente, sans se consulter — puis un arbitre tranche.**
 
@@ -8,7 +10,7 @@ un agent unique, de combien, et pour quel coût »** — sur les mêmes incident
 test statistique apparié.
 
 > ### Résultat chiffré : en attente du run réel
-> Tout le code qui le produit est écrit et testé — **85 tests, hors réseau, 0 $**.
+> Tout le code qui le produit est écrit et testé — **99 tests, hors réseau, 0 $**.
 > Cette place restera vide tant que la mesure n'aura pas tourné. Un README qui
 > annonce un résultat avant de l'avoir mesuré est exactement ce que ce projet
 > cherche à ne pas faire.
@@ -176,7 +178,7 @@ council/
 
 ```bash
 make install              # uv sync
-make test                 # 85 tests, hors réseau, 0 $
+make test                 # 99 tests, hors réseau, 0 $
 make lint                 # ruff + mypy strict
 
 make dataset              # régénère les 45 incidents (déterministe, graine fixe)
@@ -225,6 +227,24 @@ conséquences assumées :
 | [`docs/decisions.md`](docs/decisions.md) | 17 arbitrages, chacun avec sa mesure et sa date |
 | `docs/calibration.md` | *généré par* `make calibrate` |
 | `docs/benchmark.md` | *généré par* `make benchmark` |
+
+---
+
+## Intégration continue
+
+À chaque push : `make lint` (ruff + mypy strict), `make test`, puis deux
+vérifications propres au projet — le jeu de données doit se **régénérer à
+l'identique** (`git diff --exit-code`, sinon les chiffres publiés ne décrivent
+plus rien) et les **trois gardes anti-triche** doivent passer.
+
+La suite tourne hors réseau contre un client LLM simulé : la CI ne consomme
+aucun jeton et n'a besoin d'aucun secret.
+
+---
+
+## Licence
+
+MIT — voir [`LICENSE`](LICENSE).
 
 ---
 

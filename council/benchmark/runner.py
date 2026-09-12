@@ -71,14 +71,31 @@ class ArmResult:
         return asdict(self)
 
 
+def first_round(hypotheses: Sequence[Hypothesis]) -> list[Hypothesis]:
+    """La PREMIERE hypothese de chaque agent, avant toute relance.
+
+    On ne prend pas `hypotheses[:3]` : cela supposerait que LangGraph ajoute
+    toujours les trois branches paralleles avant toute revision, ce qui est vrai
+    aujourd'hui mais n'est garanti nulle part. Filtrer par agent est aussi simple
+    et ne repose sur aucun ordre.
+    """
+    seen: dict[SpecialistName, Hypothesis] = {}
+    for hypothesis in hypotheses:
+        seen.setdefault(hypothesis.agent, hypothesis)
+    return list(seen.values())
+
+
 def pick_by_confidence(hypotheses: Sequence[Hypothesis]) -> Hypothesis | None:
     """Agregation triviale : l'hypothese la plus confiante, hors abstentions."""
     answered = [h for h in hypotheses if h.cause is not None]
     if not answered:
         return None
+    # `.index()` leverait sur un agent absent de la table -- la baseline, par
+    # exemple, produit le meme type d'objet mais n'est pas un specialiste.
+    rank = {agent: position for position, agent in enumerate(VOTE_TIEBREAK)}
     return max(
         answered,
-        key=lambda h: (h.confidence, -VOTE_TIEBREAK.index(h.agent)),
+        key=lambda h: (h.confidence, -rank.get(h.agent, len(rank))),
     )
 
 
@@ -199,16 +216,16 @@ class BenchmarkRunner:
 
         # Bras `vote` : rejoue les trois hypotheses du PREMIER tour. Zero appel,
         # zero dollar -- il ne consomme que ce que le conseil a deja paye.
-        initial = hypotheses[:3]
-        winner = pick_by_confidence(initial)
+        winner = pick_by_confidence(first_round(hypotheses))
+        # `pick_by_confidence` ecarte deja les abstentions ; le second test est
+        # pour le verificateur de types, pas pour la logique.
+        vote_cause = None if winner is None or winner.cause is None else winner.cause.value
         out.append(
             self._result(
                 incident,
                 "vote",
                 pass_index,
-                predicted=None
-                if winner is None
-                else (winner.cause.value if winner.cause else None),
+                predicted=vote_cause,
                 confidence=0.0 if winner is None else winner.confidence,
                 consensus=None,
             )

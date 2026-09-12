@@ -148,3 +148,11 @@ def test_le_cache_desactive_n_ecrit_rien(tmp_path: Path) -> None:
     cache.put("k", {"payload": {}})
     assert cache.get("k") is None
     assert not (tmp_path / "vide").exists()
+
+
+def test_une_reponse_non_parsable_donne_un_message_lisible(tmp_path: Path) -> None:
+    """Le schema garantit du JSON valide : arriver ici veut dire qu'autre chose a change."""
+    guard = BudgetGuard(limit_usd=10.0)
+    client = _client(tmp_path, guard, _Api(_Response("ceci n'est pas du JSON")))
+    with pytest.raises(LLMError, match="non parsable"):
+        _call(client)

@@ -275,3 +275,44 @@ def test_l_agregation_triviale_est_deterministe() -> None:
     winner = pick_by_confidence(tie)
     assert winner is not None and winner.agent is SpecialistName.INFRA
     assert pick_by_confidence([h(SpecialistName.INFRA, None, 0.0)]) is None
+
+
+def test_le_premier_tour_ne_depend_pas_de_l_ordre_de_la_liste() -> None:
+    """Le bras `vote` doit ignorer les revisions, sans supposer d'ordre d'ajout.
+
+    `hypotheses[:3]` marchait tant que LangGraph ajoutait les trois branches
+    parallèles avant toute relance -- vrai aujourd'hui, garanti nulle part.
+    """
+    from council.benchmark.runner import first_round
+
+    def h(agent: SpecialistName, cause: RootCause, confidence: float) -> Hypothesis:
+        return Hypothesis(
+            agent=agent, cause=cause, confidence=confidence, evidence=[], reasoning=""
+        )
+
+    initial = [
+        h(SpecialistName.INFRA, RootCause.DISK_FULL, 0.8),
+        h(SpecialistName.APP, RootCause.DISK_FULL, 0.7),
+        h(SpecialistName.HISTORY, RootCause.MEMORY_LEAK, 0.6),
+    ]
+    revised = h(SpecialistName.HISTORY, RootCause.DISK_FULL, 0.9)
+
+    kept = first_round([*initial, revised])
+    assert len(kept) == 3
+    assert {x.agent: x.cause for x in kept}[SpecialistName.HISTORY] is RootCause.MEMORY_LEAK
+    # Et la révision, même la plus confiante, ne remporte pas le vote.
+    winner = pick_by_confidence(kept)
+    assert winner is not None and winner.confidence == pytest.approx(0.8)
+
+
+def test_le_vote_accepte_un_agent_hors_table_de_departage() -> None:
+    """La baseline produit le meme objet Hypothesis sans etre un specialiste."""
+    outsider = Hypothesis(
+        agent=SpecialistName.BASELINE,
+        cause=RootCause.CERT_EXPIRY,
+        confidence=0.95,
+        evidence=[],
+        reasoning="",
+    )
+    winner = pick_by_confidence([outsider])
+    assert winner is not None and winner.cause is RootCause.CERT_EXPIRY

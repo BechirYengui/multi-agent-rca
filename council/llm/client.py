@@ -120,7 +120,13 @@ class AnthropicClient:
         text = next((b.text for b in response.content if b.type == "text"), None)
         if text is None:  # pragma: no cover - le format json_schema le garantit
             raise LLMError(f"aucun bloc texte dans la reponse pour {tag}")
-        payload: dict[str, Any] = json.loads(text)
+        try:
+            payload: dict[str, Any] = json.loads(text)
+        except json.JSONDecodeError as exc:
+            # `output_config.format` garantit un JSON valide, donc arriver ici
+            # veut dire que quelque chose d'autre a change. Mieux vaut un message
+            # qui montre la reponse qu'une pile d'exception sur `json.loads`.
+            raise LLMError(f"reponse non parsable sur {tag} : {text[:200]!r}") from exc
 
         usd = self.budget.record(
             self.model, response.usage.input_tokens, response.usage.output_tokens
